@@ -5,8 +5,9 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="d3.v7.js"></script>
-    <script src="d3jstopojson.v1.js"></script>
+    <script src="../lib/d3.v7.js"></script>
+    <script src="../lib/d3jstopojson.v1.js"></script>
+
     <title>MA Map</title>
     <style>
         #tooltip {
@@ -24,7 +25,7 @@
         }
 
         path {
-            stroke-width: .5px;
+            stroke-width: .3px;
             stroke: black
         }
 
@@ -40,7 +41,42 @@
             align-items: center;
             justify-content: center;
         }
-
+        #h1
+        {
+            font-family: "Times New Roman";
+            font-style: italic;
+            color: darkslateblue;
+        }
+        #h2
+        {
+            font-family: Calibri;
+            font-style: italic;
+            color: cadetblue;
+        }
+        #h3
+        {
+            font-family: "Lucida Handwriting";
+            font-style: italic;
+            color: seagreen;
+        }
+        #h4
+        {
+            font-family: "Lucida Handwriting";
+            font-style: italic;
+            color: indianred;
+        }
+        #h5
+        {
+            font-family: "Lucida Handwriting";
+            font-style: italic;
+            color: dodgerblue;
+        }
+        #h6
+        {
+            font-family: "Lucida Handwriting";
+            font-style: italic;
+            color: slateblue;
+        }
 
     </style>
 
@@ -49,17 +85,21 @@
 <body>
 <div id="tooltip"></div>
 <div class="container">
-    <h1>Population in 1980</h1>
-    <div class="fig1">
-    </div>
-    <h1>Population change between 2000 and 2010 </h1>
+    <h1 id="h1"> Major Assignment 2 - Geospatial Visualizations</h1>
+
+    <h3 id="h2">Supreeth Mohan</h3>
+
+    <h1 id="h3">Population in 1980</h1>
+    <div class="fig1"></div>
+
+    <h1 id="h4">Population change between 2000 and 2010 </h1>
     <div class="fig2"></div>
-    <h1>Color the map by County</h1>
+
+    <h1 id="h5">Color the map by County</h1>
     <div class="fig3"></div>
 
-    <h1>Color the map by GiniIndex</h1>
+    <h1 id="h6">Color the map by GiniIndex</h1>
     <div class="fig4"></div>
-
 </div>
 
 <script>
@@ -150,7 +190,7 @@
                         .style("opacity", .9)
                     tooltip.html(d['properties']['POP1980'])
                         .style("left", m.clientX + "px")
-                        .style("top", m.clientY + "px");
+                        .style("top", m.clientY +100 + "px");
                 })
                 .on("mousemove", (m, d) => {
                     tooltip.style("opacity", .9)
@@ -216,7 +256,7 @@
                         .style("opacity", .9)
                     tooltip.html(`PopulationChange:${d['properties']['POPCH00_10']} <br> Town:${d['properties']['TOWN']}`)
                         .style("left", m.clientX  + "px")
-                        .style("top", m.clientY + 350 + "px");
+                        .style("top", m.clientY + 650 + "px");
                 })
                 .on("mousemove", (m, d) => {
                     tooltip.style("opacity", .9)
@@ -323,7 +363,7 @@ Population Change Between 2000 and 2010: ${d['properties']['POPCH00_10']}<br>
 
 </div>`)
                         .style("left", m.clientX + "px")
-                        .style("top", m.clientY+ 900 + "px");
+                        .style("top", m.clientY+ 1000 + "px");
                 })
                 .on("mousemove", (m, d) => {
                     tooltip.style("opacity", .9)
