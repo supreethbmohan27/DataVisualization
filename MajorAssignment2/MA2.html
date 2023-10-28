@@ -452,10 +452,13 @@ Population Change Between 2000 and 2010: ${d['properties']['POPCH00_10']}<br>
             d3.csv(gini_index).then(data=>{
                 data = data.filter(d => d.year == 2017);
                 const giniByCounty = {};
+                const gnames={};
                 data.forEach(d => {
                     const countyID = d.id.slice(-5);
                     const giniIndex = +d['Estimate!!Gini Index'];
+                    const gname= d['Geographic Area Name'];
                     giniByCounty[countyID] = giniIndex;
+                    gnames[countyID]=gname;
                 });
                 console.log(giniByCounty)
                 // Define a color scale based on Gini index
@@ -477,13 +480,15 @@ Population Change Between 2000 and 2010: ${d['properties']['POPCH00_10']}<br>
 
                     .on("mouseenter", (m, d) => {
                         const countyID = d['properties']['FIPS_STCO'];
+                        const cname = gnames[countyID];
                         const giniIndex = giniByCounty[countyID];
                         tooltip.transition()
                             .duration(200)
                             .style("opacity", .9)
                         tooltip.html(`<div>
     County ID: ${countyID}<br>
-    Gini Index 2019: ${giniIndex}<br>
+    County Name: ${cname} <br>
+    Gini Index 2017: ${giniIndex}<br>
     </div>`)
                             .style("left", m.clientX + "px")
                             .style("top", m.clientY + 1700+ "px");
