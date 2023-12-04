@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CT Scan</title>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <script src="https://d3js.org/d3-contour.v2.min.js"></script>
+    <style>
+        #time {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            font-family: sans-serif;
+            font-size: 12pt;
+        }
+
+        .legend_text {
+            font-family: sans-serif;
+            font-size: 5pt;
+        }
+
+        .slider-container {
+            width: 80%;
+            margin: 20px auto;
+        }
+    </style>
+</head>
+
+<body>
+<svg id="contourMap"></svg>
+
+
+
+<div class="slider-container">
+    <label for="threshold-slider">Filter Threshold:</label>
+    <input type="range" id="threshold-slider" min="0" max="1000" value="470">
+    <span id="threshold-value"></span>
+</div>
+
+<script>
+    const ctImageDataFile = `data/Data_CT.csv`;
+    const width = 800; // replace with your desired width
+    const height = 500; // replace with your desired height
+    //let svg = d3.select("svg");
+    const path = d3.geoPath();
+    const svg = d3.select("#contourMap")
+        //.append("svg")
+        .attr("width", width)
+        .attr("height", height);
+    function plot_contour(dataFile, threshold) {
+        d3.csv(dataFile).then(function (data) {
+            //console.log("Data:", data);
+
+            let m = 512, n = 512;
+
+            let values_T = [];
+            data.forEach(function (d) {
+                values_T.push(+d[0]);
+            });
+            //const values_T = data.map(d => +d[Object.keys(d)[0]]);
+            let min = d3.min(values_T);
+            let max = d3.max(values_T);
+
+            // let colors = d3.scaleDiverging()
+            //     .domain(d3.extent(values_T))
+            //     .interpolator(d3.interpolateRdBu);
+            let colors = d3.scaleLinear()
+                .domain(d3.range(min, max,
+                    parseInt(Math.abs(max - min) / 6.5)))
+                .range(["#ffffff", "#3e5ebc", "#2b83bf",
+                    "#abdda6","#d7191c","#fdfa72","#fdae61"])
+                .interpolate(d3.interpolateHcl);
+
+            let contours = d3.contours()
+                .size([m, n])
+                .thresholds(d3.range(min, max, threshold))
+                (values_T);
+
+            svg.selectAll('.contours').remove();
+
+            svg.append("g").attr("class", "contours")
+                .selectAll("path")
+                .data(contours)
+                .enter()
+                .append("path")
+                .attr("d", function (d) {
+                    return path(d);
+                })
+                .attr("stroke", "black")
+                .attr("stroke-width", ".1px")
+                .attr("fill", function (d) {
+                    return colors(d.value);
+                });
+            // svg.selectAll("path")
+            //     .data(contours)
+            //     .enter().append("path")
+            //     .attr("d", d3.geoPath())
+            //     .attr("fill", d => colors(d.value));
+        });
+    }
+
+    function updateThreshold(threshold) {
+        document.getElementById("threshold-value").innerText = threshold;
+        plot_contour(ctImageDataFile, threshold);
+    }
+
+    //Initial plot
+    plot_contour(ctImageDataFile, 470);
+
+    //Slider event listener
+    const thresholdSlider = document.getElementById("threshold-slider");
+    thresholdSlider.addEventListener("input", function () {
+        const thresholdValue = +this.value;
+        updateThreshold(thresholdValue);
+    });
+</script>
+</body>
+</html>
