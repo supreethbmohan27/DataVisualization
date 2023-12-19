@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<!-- Load d3.js -->
+<head>
+    <meta charset="utf-8">
+    <title>Stacked Area Chart</title>
+    <!-- Load d3.js -->
+    <script src="https://d3js.org/d3.v6.js"></script>
+    <style>
+        /* Add your custom styles here */
+        body {
+            font-family: 'Arial', sans-serif;
+        }
+
+        #my_dataviz {
+            margin: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1 style="text-align: center;">Stacked Area Chart</h1>
+</header>
+
+<div id="my_dataviz"></div>
+<script>
+    // Set the dimensions and margins of the graph
+    var margin = {top: 20, right: 30, bottom: 100, left: 60},
+        width = 960 - margin.left - margin.right,
+        height = 500 - margin.top - margin.bottom;
+
+    // Append the svg object to the div
+    var svg = d3.select("#my_dataviz")
+        .append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+    // Load the data
+    d3.csv("data1.csv").then(data => {
+
+        // Convert DEATHS to Number and format the data
+        var processedData = {};
+        data.forEach(function(d) {
+            d.DEATHS = Number(d.DEATHS.replace(/,/g, "")); // Remove commas and convert to number
+            if (!processedData[d.STATE]) {
+                processedData[d.STATE] = {};
+            }
+            processedData[d.STATE][d.YEAR] = d.DEATHS;
+        });
+
+        // Create a list of states and years
+        var states = Object.keys(processedData);
+        var years = Array.from(new Set(data.map(d => d.YEAR))).sort();
+
+        // Stack the data
+        var stackedData = d3.stack()
+            .keys(years)
+            .value(function(d, key) {
+                return d[key] || 0; // Return 0 if no data for a given year
+            })(states.map(state => processedData[state]));
+
+        // Add X axis
+        var x = d3.scaleBand()
+            .domain(states)
+            .range([0, width])
+            .padding(0.1)
+            .align(0.5); // Adjust the align property to center the bands
+
+        svg.append("g")
+            .attr("transform", "translate(0," + height + ")")
+            .call(d3.axisBottom(x))
+            .selectAll("text")
+            .style("text-anchor", "end")
+            .attr("dx", "-.8em")
+            .attr("dy", ".15em")
+            .attr("transform", "rotate(-45)"); // Adjust rotation for better alignment
+
+        // Add Y axis
+        var y = d3.scaleLinear()
+            .domain([0, d3.max(stackedData, function(d) { return d3.max(d, function(d) { return d[1]; }); })])
+            .range([height, 0]);
+
+        svg.append("g")
+            .call(d3.axisLeft(y));
+
+        // Color palette
+        var color = d3.scaleOrdinal(d3.schemeCategory10);
+
+        // Area generator
+        var area = d3.area()
+            .x(function(d, i) { return x(states[i]); })
+            .y0(function(d) { return y(d[0]); })
+            .y1(function(d) { return y(d[1]); });
+
+        // Show the areas
+        svg.selectAll(".layer")
+            .data(stackedData)
+            .enter().append("path")
+            .attr("class", "layer")
+            .style("fill", function(d) { return color(d.key); })
+            .attr("d", area)
+            .on("mouseover", function(event, d) {
+                // Highlight the stack on hover
+                d3.select(this).style("fill", "brown");
+
+                // Display the year in the tooltip
+                svg.append("text")
+                    .attr("id", "tooltip")
+                    .attr("x", width / 2)
+                    .attr("y", height / 2)
+                    .attr("text-anchor", "middle")
+                    .style("font-size", 20)
+                    .style("fill", "black")
+                    .text(d.key);
+            })
+            .on("mousemove", function(event, d) {
+                // Update the position of the tooltip
+                d3.select("#tooltip")
+                    .attr("x", event.pageX)
+                    .attr("y", event.pageY - 30);
+            })
+            .on("mouseleave", function() {
+                // Restore the original fill color on mouse leave
+                d3.select(this).style("fill", function(d) { return color(d.key); });
+
+                // Remove the tooltip
+                d3.select("#tooltip").remove();
+            });
+    });
+</script>
+</body>
+

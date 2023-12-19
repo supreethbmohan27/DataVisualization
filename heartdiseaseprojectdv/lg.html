@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <title>Interactive Line Chart</title>
+  <!-- Load d3.js -->
+  <script src="https://d3js.org/d3.v6.js"></script>
+  <style>
+    /* Add your custom styles here */
+    body {
+      font-family: 'Arial', sans-serif;
+      margin: 20px;
+    }
+
+    #my_dataviz {
+      width: 800px;
+      height: 400px;
+    }
+
+    .line {
+      fill: none;
+      stroke-width: 2px;
+    }
+
+    .tooltip {
+      position: absolute;
+      background-color: white;
+      padding: 5px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      pointer-events: none;
+      opacity: 0;
+    }
+
+    .dot {
+      fill: steelblue;
+      stroke: white;
+      stroke-width: 1px;
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <h1 style="text-align: center;">Interactive Line Chart</h1>
+</header>
+
+<div id="my_dataviz"></div>
+
+<script>
+  // Set the dimensions and margins of the graph
+  var margin = {
+            top: 20,
+            right: 30,
+            bottom: 70,
+            left: 60
+          },
+          width = 800 - margin.left - margin.right,
+          height = 400 - margin.top - margin.bottom;
+
+  // Append the svg object to the div
+  var svg = d3.select("#my_dataviz")
+          .append("svg")
+          .attr("width", width + margin.left + margin.right)
+          .attr("height", height + margin.top + margin.bottom)
+          .append("g")
+          .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+  // Create a tooltip
+  var tooltip = d3.select("body")
+          .append("div")
+          .attr("class", "tooltip")
+          .style("opacity", 0);
+
+  // Load the data
+  d3.csv("data1.csv").then(function (data) {
+    // Log the loaded data for debugging
+    console.log("Loaded Data:", data);
+
+    // Extract unique states from the data
+    var states = Array.from(new Set(data.map(function (d) {
+      return d.STATE;
+    })));
+
+    // Create an array to hold data for each state
+    var stateData = states.map(function (state) {
+      var stateLine = data.filter(function (d) {
+        return d.STATE === state;
+      });
+
+      stateLine.forEach(function (d) {
+        console.log(d.YEAR, d.DEATHS);
+        d.date = +d.YEAR;
+        d.value = +d.DEATHS;
+      });
+
+      return {
+        state: state,
+        data: stateLine
+      };
+    });
+
+    // Log the processed data for debugging
+    console.log("Processed Data:", stateData);
+
+    // Determine the overall domain for x and y scales
+    var x = d3.scaleLinear().range([0, width]);
+    var y = d3.scaleLinear().range([height, 0]);
+
+    x.domain(d3.extent(data, function (d) {
+      return +d.YEAR;
+    }));
+    y.domain([0, d3.max(data, function (d) {
+      return +d.DEATHS;
+    })]);
+
+    // Append the x-axis
+    svg.append("g")
+            .attr("transform", "translate(0," + height + ")")
+            .call(d3.axisBottom(x).tickFormat(d3.format("d")));
+
+    // Append the y-axis
+    svg.append("g")
+            .attr("class", "y-axis") // Added class for easy selection during update
+            .call(d3.axisLeft(y).tickValues(d3.range(0, d3.max(data, function (d) {
+              return +d.DEATHS;
+            }), 100000)));
+
+    // Create a color scale
+    var colorArray = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
+      '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
+      '#aec7e8', '#ffbb78', '#98df8a', '#ff9896', '#c5b0d5',
+      '#c49c94', '#f7b6d2', '#c7c7c7', '#dbdb8d', '#9edae5',
+      '#1f78b4', '#ff7f00', '#33a02c', '#e31a1c', '#6a3d9a',
+      '#a6cee3', '#fdbf6f', '#b2df8a', '#cab2d6', '#ffeda0',
+      '#636363', '#fb9a99', '#bcbd22', '#b3de69', '#fdbf6f',
+      '#a6cee3', '#1f78b4', '#33a02c', '#e31a1c', '#ff7f00',
+      '#a6cee3', '#1f78b4', '#b2df8a', '#fb9a99', '#fdbf6f'
+    ];
+
+    var colorScale = d3.scaleOrdinal().range(colorArray);
+
+    // Append a line for each state with a unique color
+    svg.selectAll(".line")
+            .data(stateData)
+            .enter()
+            .append("path")
+            .attr("class", "line")
+            .attr("stroke", function (d) {
+              return colorScale(d.state);
+            })
+            .attr("d", function (d) {
+              return d3.line()
+                      .x(function (d) {
+                        return x(d.date);
+                      })
+                      .y(function (d) {
+                        return y(d.value);
+                      })(d.data);
+            })
+            .on('mouseover', function (event, d) {
+              d3.selectAll(".line")
+                      .classed("inactive", function (e) {
+                        return e.state !== d.state;
+                      });
+
+              // Display state label at the end of the line
+              svg.append("text")
+                      .attr("class", "state-label")
+                      .attr("x", x(d.data[d.data.length - 1].date) + 10)
+                      .attr("y", y(d.data[d.data.length - 1].value))
+                      .style("fill", colorScale(d.state))
+                      .text(d.state);
+            })
+            .on('mouseout', function () {
+              // Hide tooltip and reset line styles on mouseout
+              tooltip.transition()
+                      .duration(500)
+                      .style("opacity", 0);
+
+              d3.selectAll(".line")
+                      .classed("inactive", false);
+
+              // Remove state labels on mouseout
+              svg.selectAll(".state-label").remove();
+            });
+  }).catch(function (error) {
+    // Log any errors for debugging
+    console.error("Error:", error);
+  });
+</script>
+
+</body>
+
+</html>

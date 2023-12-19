@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Heart Disease Mortality by State</title>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <script src="https://d3js.org/topojson.v2.min.js"></script>
+    <style>
+        .dropdown-container {
+            margin: 20px auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            background-color: #ecf0f1;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        label {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .dropdown-container select {
+            width: 150px;
+            margin-bottom: 10px;
+        }
+        select {
+            width: 200px;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #bdc3c7;
+            border-radius: 5px;
+            background-color: #fff;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+        }
+        #canvas {
+            width: 100%;
+            height: 80vh;
+        }
+
+        .path_geo {
+            stroke-width: 0.5px;
+            stroke: black;
+            fill-opacity: 0.9;
+        }
+
+        .path_geo:hover {
+            fill: lightskyblue !important;
+        }
+
+        #tooltip {
+            opacity: 3%;
+            background-color: #f5f3f0;
+            position: absolute;
+            font-family: sans-serif;
+            font-size: medium;
+            width: 300px;
+            height: 250px;
+            padding: -20px;
+            border-radius: 20px;
+        }
+
+
+        body {
+            font-family: 'Arial', sans-serif;
+        }
+
+        h1 {
+            background-color: #3498db;
+            padding: 15px;
+            text-align: center;
+            color: #fff;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            border-bottom: 2px solid #2980b9;
+        }
+    </style>
+</head>
+<body>
+<h1>Mortality Rates by Heart Disease</h1>
+<div class="dropdown-container">
+    <div>
+        <label for="yearSelect">Year:</label>
+        <select id="yearSelect"></select>
+    </div>
+    <div>
+        <label for="stateSelect">State:</label>
+        <select id="stateSelect"></select>
+    </div>
+</div>
+<div style="display: flex; justify-content: space-between; margin: 20px;">
+    <button id="backButton"><a href="#" >Back</a></button>
+    <button id="nextButton"><a href="#" >Next</a></button>
+</div>
+
+
+
+<svg id="canvas" width="100%" height="100%" viewBox="0 0 1000 800"></svg>
+
+<div id="tooltip" style="background-color: transparent;">
+    <svg id="svg_tooltip" width="100%" height="100%" viewBox="0 0 450 200"></svg>
+</div>
+
+<script>
+    let geojsonUrl = "US_STATES.json"; // URL or path to your GeoJSON file
+    let mortalityDataUrl = "data1.csv"; // URL or path to your CSV file
+
+    Promise.all([d3.json(geojsonUrl), d3.csv(mortalityDataUrl)]).then(function(data) {
+        let [usStates, mortalityData] = data;
+
+        let years = Array.from(new Set(mortalityData.map(d => +d['YEAR'])));
+        let states = Array.from(new Set(mortalityData.map(d => d['STATE'])));
+
+        let selectedYear = years[0];
+        let selectedState = states[0];
+
+        d3.select("#yearSelect")
+            .selectAll("option")
+            .data(years)
+            .enter()
+            .append("option")
+            .text(d => d)
+            .attr("value", d => d)
+            .property("selected", d => d === selectedYear);
+
+        d3.select("#stateSelect")
+            .selectAll("option")
+            .data(states)
+            .enter()
+            .append("option")
+            .text(d => d)
+            .attr("value", d => d);
+
+        d3.select("#yearSelect").on("change", function() {
+            selectedYear = +this.value;
+            updateMap();
+        });
+
+        d3.select("#stateSelect").on("change", function() {
+            selectedState = this.value;
+            console.log(selectedState)
+            updateMap();
+        });
+
+        function updateMap() {
+            let svg = d3.select('#canvas');
+
+            let mortalityDataForYear = mortalityData.filter(d => parseInt(d.YEAR) === selectedYear);
+            let mortalityByState = {};
+            console.log(mortalityDataForYear)
+            mortalityDataForYear.forEach(d => {
+                mortalityByState[+d.ID] = {
+                    'Rate': +d.RATE,
+                    'Death': +d.DEATHS
+
+                }// Replace 'StateID' with the actual identifier
+            });
+
+            let colorScale = d3.scaleSequential(d3.interpolateReds)
+                .domain(d3.extent(mortalityDataForYear, d => +d.RATE));
+
+
+            let projection = d3.geoAlbersUsa().translate([500, 400]).scale(1000);
+            let path = d3.geoPath().projection(projection);
+
+
+            usStates.features = topojson.feature(usStates, usStates.objects.states).features;
+            console.log(usStates.features)
+            svg.selectAll(".state")
+                .data(usStates.features)
+                .join("path")
+                .attr("class", "path_geo")
+                .attr("d", path)
+                .style("fill", d => {
+
+                    let stateID = d.id;
+                    return mortalityByState[stateID] ? colorScale(mortalityByState[stateID].Rate) : '#ccc';
+                })
+
+//                 .on("mouseover", function (event, d) {
+//                     d3.select(this).classed("State", true);
+//
+//                     const stateName = d.properties.name;
+//                     const stateID = +d.id;
+//                     const stateData = mortalityByState[stateID].Rate;
+//                     const tooltipText = `
+//     <div>State: ${stateName}</div>
+//     <div>Year: ${selectedYear}</div>
+//     <div>Deaths: ${stateData} </div>
+// `;
+//                     // d3.select("#tooltip")
+//                     //     .style("opacity", 1)
+//                     //     .html(tooltipText)
+//                     //     .style("left", (event.pageX + 10) + "px")
+//                     //     .style("top", (event.pageY - 28) + "px");
+//                     createLineChart(stateID);
+//
+//                     // .on("mouseout", function () {
+//                     //     d3.select(this).classed("hover", false);
+//                     //
+//                     //     d3.select("#tooltip").style("opacity", 0);
+//                     // })
+//
+//
+//                     // Modify the mouseover event to include line chart functionality
+//                     //svg.selectAll(".state")
+//
+//                 })
+
+
+
+            /////////////////////////////////////////////////////
+            svg.selectAll(".path_geo")
+                .on("mouseover", function (event, d) {
+                    const stateID = +d.id;
+                    const stateName = d.properties.name;
+                     // Generate line chart
+                    createLineChart(stateID,stateName);
+
+                    // Update tooltip content and position
+                    d3.select("#tooltip")
+                        .style("opacity", 1)
+                        //.html(tooltipText)
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 20) + "px");
+
+                })
+                .on("mouseout", function () {
+                    d3.select("#tooltip").style("opacity", 0);
+                });
+
+
+
+
+        }
+
+
+        function createLineChart(stateID, stateName) {
+            let filteredData = mortalityData.filter(d => parseInt(d.ID) === stateID);
+            let filteredData1 = mortalityData.filter(d => d.STATE === selectedState);
+            console.log('d',filteredData1)
+            let dataForLineChart = filteredData.map(d => ({
+                year: +d.YEAR,
+                rate: +d.RATE
+            }));
+            let dataForLineChart1 = filteredData1.map(d => ({
+                year: +d.YEAR,
+                rate: +d.RATE
+            }));
+            let years = dataForLineChart.map(d=>d.year);
+
+            let margin = {top: 20, right: 50, bottom: 40, left: 60};
+            let width = 400 - margin.left - margin.right;
+            let height = 200 - margin.top - margin.bottom;
+
+            let xScale = d3.scalePoint()
+                .domain(years)
+                .range([0, width]);
+            let yMax = d3.max(dataForLineChart,d=>d.rate)>d3.max(dataForLineChart1,d=>d.rate)? d3.max(dataForLineChart,d=>d.rate) : d3.max(dataForLineChart1,d=>d.rate);
+            console.log(yMax)
+            let yScale = d3.scaleLinear()
+                .domain([0, yMax])
+                .range([height, 0]);
+
+            let lineGenerator = d3.line()
+                .x(d => xScale(d.year))
+                .y(d => yScale(d.rate));
+
+            let lineGenerator1 = d3.line()
+                .x(d => xScale(d.year))
+                .y(d => yScale(d.rate));
+
+            let svg_tooltip = d3.select("#svg_tooltip");
+            svg_tooltip.selectAll('*').remove(); // Clear previous content
+
+            let g = svg_tooltip.append('g')
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Append the path for the line chart
+            g.append('path')
+                .datum(dataForLineChart)
+                .attr('d', lineGenerator)
+                .attr('fill', 'none')
+                .attr('stroke', 'blue');
+
+
+
+// Find the last data point
+            let lastDataPoint = dataForLineChart[dataForLineChart.length - 1];
+
+            let lastDataPoint1 = dataForLineChart1[dataForLineChart1.length - 1];
+
+// Position the text at the last data point
+            g.append("text")
+                .attr("x", xScale(lastDataPoint.year)) // x position based on the last year
+                .attr("y", yScale(lastDataPoint.rate)) // y position based on the last rate
+                .attr("dx", "0.5em")  // Offset the text a bit right from the end of the line
+                .attr("dy", "-1em") // Offset the text a bit up from the line
+                .attr("text-anchor", "start")
+                .attr("font-size", "12px")
+                .attr("font-weight", "bold")
+                .text(stateName); // The state name
+
+            g.append("text")
+                .attr("x", xScale(lastDataPoint1.year)) // x position based on the last year
+                .attr("y", yScale(lastDataPoint1.rate)) // y position based on the last rate
+                .attr("dx", "0.5em")  // Offset the text a bit right from the end of the line
+                .attr("dy", "1em") // Offset the text a bit up from the line
+                .attr("text-anchor", "start")
+                .attr("font-size", "12px")
+                .attr("font-weight", "bold")
+                .text(selectedState); // The state name
+
+
+            // g.append("text")
+            //     .attr("x", width / 2)
+            //     .attr("y", margin.top / 2)
+            //     .attr("text-anchor", "middle")
+            //     .attr("font-size", "16px")
+            //     .attr("font-weight", "bold")
+            //     .text(stateName);
+
+            g.append('path')
+                .datum(dataForLineChart)
+                .attr('d', lineGenerator)
+                .attr('fill', 'none')
+                .attr('stroke', 'blue');
+
+            g.append('path')
+                .datum(dataForLineChart1)
+                .attr('d', lineGenerator1)
+                .attr('fill', 'none')
+                .attr('stroke', 'red');
+
+            // Add X and Y Axis
+            g.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(xScale).tickFormat(d3.format("d")));
+
+            g.append("g")
+                .call(d3.axisLeft(yScale));
+        }
+
+
+        updateMap();
+    }).catch(function(error) {
+        console.log(error);
+    });
+
+</script>
+</body>
+</html>

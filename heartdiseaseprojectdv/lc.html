@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Interactive Line Chart</title>
+  <!-- Load d3.js -->
+  <script src="https://d3js.org/d3.v6.js"></script>
+  <style>
+    /* Add your custom styles here */
+    body {
+      font-family: 'Arial', sans-serif;
+      margin: 20px;
+    }
+
+    #my_dataviz {
+      width: 800px;
+      height: 400px;
+    }
+
+    .line {
+      fill: none;
+      stroke-width: 2px;
+    }
+
+    .tooltip {
+      position: absolute;
+      background-color: white;
+      padding: 5px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      pointer-events: none;
+      opacity: 0;
+    }
+
+    .dot {
+      fill: steelblue;
+      stroke: white;
+      stroke-width: 1px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1 style="text-align: center;">Interactive Line Chart</h1>
+</header>
+
+<div id="my_dataviz"></div>
+
+<script>
+  // Set the dimensions and margins of the graph
+  var margin = {top: 20, right: 30, bottom: 70, left: 60},
+          width = 800 - margin.left - margin.right,
+          height = 400 - margin.top - margin.bottom;
+
+  // Append the svg object to the div
+  var svg = d3.select("#my_dataviz")
+          .append("svg")
+          .attr("width", width + margin.left + margin.right)
+          .attr("height", height + margin.top + margin.bottom)
+          .append("g")
+          .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+  // Load the data
+  d3.csv("data1.csv").then(data => {
+    // Convert DEATHS to Number and format the data
+    data.forEach(function(d) {
+      d.DEATHS = Number(d.DEATHS.replace(/,/g, ""));
+    });
+
+    // Create scales
+    var xScale = d3.scaleBand()
+            .domain(data.map(d => d.STATE))
+            .range([0, width])
+            .padding(0.1);
+
+    var yScale = d3.scaleLinear()
+            .domain([0, d3.max(data, d => d.DEATHS)])
+            .range([height, 0]);
+
+    // Create a color scale
+    var colorScale = d3.scaleOrdinal(d3.schemeCategory10);
+
+    // Create the line
+    var line = d3.line()
+            .x(d => xScale(d.STATE))
+            .y(d => yScale(d.DEATHS));
+
+    // Append the line with transitions
+    svg.append("path")
+            .datum(data)
+            .attr("class", "line")
+            .attr("d", line)
+            .attr("stroke", colorScale(1)) // Set the line color
+            .style("opacity", 0) // Set initial opacity to 0
+            .transition()
+            .duration(2000) // Transition duration in milliseconds
+            .style("opacity", 1); // Transition to full opacity
+
+    svg.append("g")
+            .attr("transform", "translate(0," + height + ")")
+            .call(d3.axisBottom(xScale))
+            .selectAll("text")
+            .style("text-anchor", "end")
+            .attr("dx", "-.8em")
+            .attr("dy", ".15em")
+            .attr("transform", "rotate(-45)"); // Adjust rotation for better alignment
+
+    // Add the Y axis
+    svg.append("g")
+            .call(d3.axisLeft(yScale));
+    var tooltip = d3.select("#my_dataviz").append("div")
+            .attr("class", "tooltip")
+            .style("opacity", 0);
+    // Add points on the line for interactivity
+    svg.selectAll("circle")
+            .data(data)
+            .enter().append("circle")
+            .attr("class", "dot")
+            .attr("cx", d => xScale(d.STATE))
+            .attr("cy", d => yScale(d.DEATHS))
+            .attr("r", 4)
+            .style("fill", d => colorScale(d.YEAR)) // Set the point color
+            .on("mouseover", function(event, d) {
+              tooltip.transition()
+                      .duration(200)
+                      .style("opacity", .9);
+              tooltip.html(`State: ${d.STATE}<br>Deaths: ${d.DEATHS}<br>Year: ${d.YEAR}`)
+                      .style("left", (event.pageX + 5) + "px")
+                      .style("top", (event.pageY - 28) + "px");
+            })
+            .on("mouseout", function(d) {
+              tooltip.transition()
+                      .duration(500)
+                      .style("opacity", 0);
+            });
+  });
+</script>
+
+</body>
+</html>
